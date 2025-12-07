@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Générateur de Pseudos Débiles</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #020617;
+      --card: #020617;
+      --text-main: #e5e7eb;
+      --text-soft: #9ca3af;
+      --accent-1: #ec4899;
+      --accent-2: #f97316;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000000;
+      color: var(--text-main);
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.98));
+
+      padding: 20px 18px 16px;
+
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 20px;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-soft);
+      margin-bottom: 16px;
+    }
+
+    #pseudoBox {
+      position: relative;
+        background-color: #000;
+      padding: 32px 14px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      min-height: 130px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    #pseudoLabel {
+      position: absolute;
+      top: 12px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-soft);
+    }
+
+    #pseudoText {
+      font-size: 1.5rem;
+      font-weight: 600;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      word-break: break-word;
+      text-align: center;
+    }
+
+    .placeholder {
+      opacity: 0.6;
+      font-size: 0.95rem;
+      font-weight: 400;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    @media (min-width: 480px) {
+      .actions {
+        flex-direction: row;
+        justify-content: center;
+      }
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+      width: 100%;
+    }
+
+    button:active {
+      transform: translateY(1px) scale(0.985);
+      box-shadow: none;
+    }
+
+    .btn-primary {
+      background: radial-gradient(circle at top left, var(--accent-2), var(--accent-1));
+      color: #020617;
+
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.06);
+    }
+
+    .btn-ghost {
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text-main);
+      border: 1px solid rgba(63, 63, 63, 0.6);
+
+    }
+
+    .btn-ghost:hover {
+      filter: brightness(1.08);
+    }
+
+    .copy-status {
+      font-size: 0.9rem;
+      color: var(--text-soft);
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: var(--text-soft);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Générateur de pseudos débiles</h1>
+    </header>
+
+    <section>
+      <div id="pseudoBox">
+        <div id="pseudoText"></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn-primary" id="generateBtn" type="button">⚡ Regénérer</button>
+        <button class="btn-ghost" id="copyBtn" type="button">📋 Copier</button>
+      </div>
+
+      <div class="copy-status" id="copyStatus"></div>
+    </section>
+  </main>
+
+<script>
+  const WORDS_URL = "words.json"; // adapte le chemin si besoin
+
+  let words = {
+    start: [],
+    core: [],
+    end: []
+  };
+
+  let wordsReady = false;
+
+  const pseudoTextEl = document.getElementById("pseudoText");
+  const copyStatusEl = document.getElementById("copyStatus");
+  const generateBtn  = document.getElementById("generateBtn");
+  const copyBtn      = document.getElementById("copyBtn");
+
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  // entry = { base: "Gros", f?: "Grosse" }
+  function pickForm(entry, isFeminine) {
+    if (!entry) return "";
+    if (isFeminine && entry.f) return entry.f;
+    return entry.base || "";
+  }
+
+  function isCoreFeminine(core) {
+    if (!core || core.gender == null) return false; // masculin / neutre par défaut
+
+    const g = String(core.gender).toLowerCase().trim();
+    return (
+      g === "f" ||
+      g === "fem" ||
+      g === "femme" ||
+      g === "feminin" ||
+      g === "féminin"
+    );
+  }
+
+  function buildPseudo() {
+    if (!wordsReady || !words.core.length) {
+      return "Chargement des mots...";
+    }
+
+    const core = pick(words.core);
+    const isFeminine = isCoreFeminine(core);
+
+    const startEntry = pick(words.start);
+    const endEntry   = pick(words.end);
+
+    const start = pickForm(startEntry, isFeminine);
+    const end   = pickForm(endEntry, isFeminine);
+
+    // start et core collés, core et end reliés par un underscore
+    return `${start}${core.text}${end}`.trim();
+  }
+
+  async function loadWords() {
+    try {
+      const res = await fetch(WORDS_URL);
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
+      }
+      const data = await res.json();
+
+      words.start = Array.isArray(data.start) ? data.start : [];
+      words.core  = Array.isArray(data.core)  ? data.core  : [];
+      words.end   = Array.isArray(data.end)   ? data.end   : [];
+
+      wordsReady = words.start.length > 0 && words.core.length > 0 && words.end.length > 0;
+
+      if (!wordsReady) {
+        console.warn("words.json chargé, mais une des listes est vide.", words);
+        return;
+      }
+
+      // ✅ Générer un pseudo dès que les mots sont chargés
+      generate();
+    } catch (e) {
+      console.error("Erreur lors du chargement de words.json:", e);
+      wordsReady = false;
+      copyStatusEl.textContent = "Impossible de charger les mots (words.json).";
+    }
+  }
+
+  function generate() {
+    if (!wordsReady) {
+      copyStatusEl.textContent = "Patiente, je charge les mots débiles...";
+      return;
+    }
+
+    const pseudo = buildPseudo();
+    pseudoTextEl.textContent = pseudo;
+    pseudoTextEl.classList.remove("placeholder");
+    copyStatusEl.textContent = "";
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      copyStatusEl.textContent = "Pseudo copié dans le presse-papiers.";
+    } catch (e) {
+      copyStatusEl.textContent =
+        "Impossible de copier automatiquement, fais Ctrl+C.";
+    }
+  }
+
+  async function copyCurrentPseudo() {
+    const text = pseudoTextEl.textContent.trim();
+    if (!text || pseudoTextEl.classList.contains("placeholder")) {
+      copyStatusEl.textContent = "Génère d'abord un pseudo !";
+      return;
+    }
+    await copyToClipboard(text);
+  }
+
+  generateBtn.addEventListener("click", generate);
+  copyBtn.addEventListener("click", copyCurrentPseudo);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      generate();
+    }
+  });
+
+  // Chargement des mots au démarrage + génération auto
+  loadWords();
+</script>
+
+
+</body>
+</html>
